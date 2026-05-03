@@ -13,6 +13,7 @@ env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
   PHONE_AUTO_APK_TASK: ':fermata:packageAutoReleaseUniversalApk'
+  APP_ID_SFX: '.tsa'
 
 jobs:
   build:
@@ -73,15 +74,15 @@ jobs:
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64 dist/arm
-          ./gradlew "$PHONE_AUTO_APK_TASK" -PABI=arm64-v8a --build-cache
+          ./gradlew "$PHONE_AUTO_APK_TASK" -PABI=arm64-v8a -PAPP_ID_SFX="$APP_ID_SFX" --build-cache
           mv $out/*.apk dist/arm64/
-          ./gradlew "$PHONE_AUTO_APK_TASK" -PABI=armeabi-v7a --build-cache
+          ./gradlew "$PHONE_AUTO_APK_TASK" -PABI=armeabi-v7a -PAPP_ID_SFX="$APP_ID_SFX" --build-cache
           mv $out/*.apk dist/arm/
 
       - name: Upload arm64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: fermata-auto-${{ env.APP_VERSION }}-arm64
+          name: fermata-auto-tsa-${{ env.APP_VERSION }}-arm64
           path: dist/arm64/*.apk
           retention-days: 30
           if-no-files-found: error
@@ -89,7 +90,7 @@ jobs:
       - name: Upload arm APK
         uses: actions/upload-artifact@v4
         with:
-          name: fermata-auto-${{ env.APP_VERSION }}-arm
+          name: fermata-auto-tsa-${{ env.APP_VERSION }}-arm
           path: dist/arm/*.apk
           retention-days: 30
           if-no-files-found: error
