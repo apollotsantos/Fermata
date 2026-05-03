@@ -10,6 +10,8 @@ import static me.aap.fermata.media.pref.MediaPrefs.SCALE_4_3;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_BEST;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_FILL;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_ORIGINAL;
+import static me.aap.fermata.media.pref.MediaPrefs.SCALE_SMALL;
+import static me.aap.fermata.media.pref.MediaPrefs.SCALE_TINY;
 import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_SCALE;
 import static me.aap.fermata.media.pref.PlayableItemPrefs.BOOKMARKS;
 import static me.aap.fermata.media.pref.PlayableItemPrefs.bookmarkTime;
@@ -459,6 +461,10 @@ public class MediaItemMenuHandler implements OverlayMenu.SelectionHandler {
 				.setChecked(scale == SCALE_4_3, true);
 		b.addItem(R.id.video_scaling_16, null, R.string.video_scaling_16)
 				.setChecked(scale == SCALE_16_9, true);
+		b.addItem(R.id.video_scaling_small, null, R.string.video_scaling_small)
+				.setChecked(scale == SCALE_SMALL, true);
+		b.addItem(R.id.video_scaling_tiny, null, R.string.video_scaling_tiny)
+				.setChecked(scale == SCALE_TINY, true);
 		b.setSelectionHandler(this);
 	}
 
@@ -600,6 +606,10 @@ public class MediaItemMenuHandler implements OverlayMenu.SelectionHandler {
 			item.getPrefs().setVideoScalePref(SCALE_4_3);
 		} else if (id == R.id.video_scaling_16) {
 			item.getPrefs().setVideoScalePref(SCALE_16_9);
+		} else if (id == R.id.video_scaling_small) {
+			item.getPrefs().setVideoScalePref(SCALE_SMALL);
+		} else if (id == R.id.video_scaling_tiny) {
+			item.getPrefs().setVideoScalePref(SCALE_TINY);
 		} else if (id == R.id.hw_accel_auto) {
 			item.getPrefs().setHwAccelPref(HW_ACCEL_AUTO);
 		} else if (id == R.id.hw_accel_full) {

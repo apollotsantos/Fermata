@@ -165,6 +165,18 @@
     <string name="video_scaling_orig">Original size</string>
     <string name="video_scaling_4" translatable="false">4x3</string>
     <string name="video_scaling_16" translatable="false">16x9</string>
+    <string name="video_scaling_small">Small</string>
+    <string name="video_scaling_tiny">Tiny</string>
+    <string name="video_position">Small video position</string>
+    <string name="video_position_top_left">Top left</string>
+    <string name="video_position_top">Top</string>
+    <string name="video_position_top_right">Top right</string>
+    <string name="video_position_left">Left</string>
+    <string name="video_position_center">Center</string>
+    <string name="video_position_right">Right</string>
+    <string name="video_position_bottom_left">Bottom left</string>
+    <string name="video_position_bottom">Bottom</string>
+    <string name="video_position_bottom_right">Bottom right</string>
 
     <string name="audio">Audio</string>
     <string name="audio_delay">Audio delay</string>

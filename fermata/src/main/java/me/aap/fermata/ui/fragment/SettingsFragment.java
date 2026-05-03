@@ -564,7 +564,20 @@ public class SettingsFragment extends MainActivityFragment
 			o.subtitle = R.string.string_format;
 			o.formatSubtitle = true;
 			o.values = new int[]{R.string.video_scaling_best, R.string.video_scaling_fill,
-					R.string.video_scaling_orig, R.string.video_scaling_4, R.string.video_scaling_16};
+					R.string.video_scaling_orig, R.string.video_scaling_4, R.string.video_scaling_16,
+					R.string.video_scaling_small, R.string.video_scaling_tiny};
+		});
+		sub1.addListPref(o -> {
+			o.store = mediaPrefs;
+			o.pref = MediaLibPrefs.VIDEO_POSITION;
+			o.title = R.string.video_position;
+			o.subtitle = R.string.string_format;
+			o.formatSubtitle = true;
+			o.values = new int[]{R.string.video_position_top_left, R.string.video_position_top,
+					R.string.video_position_top_right, R.string.video_position_left,
+					R.string.video_position_center, R.string.video_position_right,
+					R.string.video_position_bottom_left, R.string.video_position_bottom,
+					R.string.video_position_bottom_right};
 		});
 		sub1.addListPref(o -> {
 			o.store = mediaPrefs;

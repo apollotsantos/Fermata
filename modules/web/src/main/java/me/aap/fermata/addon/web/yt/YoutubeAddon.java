@@ -1,6 +1,14 @@
 package me.aap.fermata.addon.web.yt;
 
 import static me.aap.fermata.BuildConfig.AUTO;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM_RIGHT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_RIGHT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP_RIGHT;
 
 import android.content.Context;
 
@@ -44,6 +52,8 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 			Pref.b("YT_AUTO_HIGHEST_QUALITY", false);
 	private static final Pref<BooleanSupplier> YT_SKIP_ADD = AUTO ? Pref.b("YT_SKIP_ADD", true) : null;
 	private boolean ignorePrefChange;
+	private VideoScale largeVideoScale = VideoScale.CONTAIN;
+	private VideoScale discreetVideoScale = VideoScale.SMALL;
 
 	@IdRes
 	@Override
@@ -156,6 +166,10 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 				return VideoScale.CONTAIN;
 			case "cover":
 				return VideoScale.COVER;
+			case "small":
+				return VideoScale.SMALL;
+			case "tiny":
+				return VideoScale.TINY;
 			default:
 				return VideoScale.NONE;
 		}
@@ -163,6 +177,22 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 
 	void setScale(VideoScale scale) {
 		getPreferenceStore().applyStringPref(VIDEO_SCALE, scale.prefName());
+	}
+
+	VideoScale toggleDiscreetScale() {
+		VideoScale scale = getScale();
+		VideoScale target;
+
+		if (scale.isDiscreet()) {
+			discreetVideoScale = scale;
+			target = largeVideoScale.isDiscreet() ? VideoScale.CONTAIN : largeVideoScale;
+		} else {
+			largeVideoScale = scale;
+			target = discreetVideoScale.isDiscreet() ? discreetVideoScale : VideoScale.SMALL;
+		}
+
+		setScale(target);
+		return target;
 	}
 
 	boolean autoHighestQuality() {
@@ -174,10 +204,54 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 	}
 
 	enum VideoScale {
-		FILL, CONTAIN, COVER, NONE;
+		FILL("object-fit:fill", 1f),
+		CONTAIN("object-fit:contain", 1f),
+		COVER("object-fit:cover", 1f),
+		NONE("object-fit:none", 1f),
+		SMALL("object-fit:contain", 0.5f),
+		TINY("object-fit:contain", 0.33f);
+
+		private final String style;
+		private final float factor;
+
+		VideoScale(String style, float factor) {
+			this.style = style;
+			this.factor = factor;
+		}
 
 		String prefName() {
 			return name().toLowerCase();
+		}
+
+		String cssStyle(int position) {
+			if (factor == 1f) return style;
+
+			String transform = "scale(" + factor + ")";
+			return switch (position) {
+				case VIDEO_POSITION_TOP_LEFT -> smallStyle("top:0;left:0", "top left", transform);
+				case VIDEO_POSITION_TOP -> smallStyle("top:0;left:50%", "top center",
+						"translateX(-50%) " + transform);
+				case VIDEO_POSITION_TOP_RIGHT -> smallStyle("top:0;right:0", "top right", transform);
+				case VIDEO_POSITION_LEFT -> smallStyle("top:50%;left:0", "center left",
+						"translateY(-50%) " + transform);
+				case VIDEO_POSITION_RIGHT -> smallStyle("top:50%;right:0", "center right",
+						"translateY(-50%) " + transform);
+				case VIDEO_POSITION_BOTTOM_LEFT -> smallStyle("bottom:0;left:0", "bottom left", transform);
+				case VIDEO_POSITION_BOTTOM -> smallStyle("bottom:0;left:50%", "bottom center",
+						"translateX(-50%) " + transform);
+				case VIDEO_POSITION_BOTTOM_RIGHT -> smallStyle("bottom:0;right:0", "bottom right", transform);
+				default -> smallStyle("top:50%;left:50%", "center center",
+						"translate(-50%,-50%) " + transform);
+			};
+		}
+
+		private String smallStyle(String position, String origin, String transform) {
+			return style + ";position:absolute;width:100%;height:100%;margin:0;" + position +
+					";transform:" + transform + ";transform-origin:" + origin;
+		}
+
+		boolean isDiscreet() {
+			return factor != 1f;
 		}
 	}
 }

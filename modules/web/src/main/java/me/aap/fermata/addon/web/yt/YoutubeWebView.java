@@ -19,7 +19,10 @@ import java.util.List;
 import me.aap.fermata.BuildConfig;
 import me.aap.fermata.addon.web.FermataChromeClient;
 import me.aap.fermata.addon.web.FermataJsInterface;
+import me.aap.fermata.addon.web.FermataWebClient;
 import me.aap.fermata.addon.web.FermataWebView;
+import me.aap.fermata.addon.web.WebBrowserAddon;
+import me.aap.fermata.media.pref.MediaPrefs;
 import me.aap.fermata.media.service.MediaSessionCallback;
 import me.aap.fermata.ui.activity.MainActivityDelegate;
 import me.aap.utils.async.FutureSupplier;
@@ -66,6 +69,14 @@ public class YoutubeWebView extends FermataWebView {
 	}
 
 	@Override
+	public void init(WebBrowserAddon addon, FermataWebClient webClient,
+							 FermataChromeClient chromeClient) {
+		super.init(addon, webClient, chromeClient);
+		MainActivityDelegate.getActivityDelegate(getContext())
+				.onSuccess(a -> a.getLib().getPrefs().addBroadcastListener(this));
+	}
+
+	@Override
 	public void onPreferenceChanged(PreferenceStore store, List<PreferenceStore.Pref<?>> prefs) {
 		super.onPreferenceChanged(store, prefs);
 
@@ -74,7 +85,15 @@ public class YoutubeWebView extends FermataWebView {
 			else clearHighestVideoQuality();
 		}
 
+		if (prefs.contains(MediaPrefs.VIDEO_POSITION)) applyVideoStyle(getAddon().getScale());
+
 		if (YoutubeSponsorBlock.isPreferenceChanged(prefs)) configureSponsorBlock();
+	}
+
+	@Override
+	public void onActivityEvent(MainActivityDelegate a, long e) {
+		super.onActivityEvent(a, e);
+		if (handleActivityDestroyEvent(a, e)) a.getLib().getPrefs().removeBroadcastListener(this);
 	}
 
 	@Override
@@ -111,12 +130,12 @@ public class YoutubeWebView extends FermataWebView {
 
 	private void attachListeners() {
 		String debug = BuildConfig.D ? JS_EVENT + "(" + JS_VIDEO_FOUND + ", null);\n" : "";
-		String scale = getAddon().getScale().prefName();
+		String style = getVideoStyle(getAddon().getScale());
 		loadUrl("javascript:\n" +
 				"function attachVideoListeners(v) {\n" +
 				"  if (v.getAttribute('FermataAttached') === 'true') return;\n" +
 				"  v.setAttribute('FermataAttached', 'true');\n" +
-				"  v.setAttribute('style', 'object-fit:" + scale + "');\n" + debug +
+				"  v.setAttribute('style', '" + style + "');\n" + debug +
 				"  if ((v.currentTime > 0) && !v.paused && !v.ended) " + JS_EVENT + "(" + JS_VIDEO_PLAYING +
 				", v.currentSrc);\n" +
 				"  v.addEventListener('playing', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PLAYING +
@@ -360,9 +379,22 @@ public class YoutubeWebView extends FermataWebView {
 
 	void setScale(YoutubeAddon.VideoScale scale) {
 		getAddon().setScale(scale);
-		String p = scale.prefName();
+		applyVideoStyle(scale);
+	}
+
+	boolean toggleDiscreetVideoScale() {
+		applyVideoStyle(getAddon().toggleDiscreetScale());
+		return true;
+	}
+
+	private void applyVideoStyle(YoutubeAddon.VideoScale scale) {
+		String style = getVideoStyle(scale);
 		loadUrl("javascript:" +
 				"document.querySelectorAll('video')" +
-				".forEach(v=> v.setAttribute('style', 'object-fit:" + p + "'));");
+				".forEach(v=> v.setAttribute('style', '" + style + "'));");
+	}
+
+	private String getVideoStyle(YoutubeAddon.VideoScale scale) {
+		return scale.cssStyle(MainActivityDelegate.get(getContext()).getLib().getPrefs().getVideoPositionPref());
 	}
 }

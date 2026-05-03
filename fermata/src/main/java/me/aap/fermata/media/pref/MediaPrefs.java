@@ -27,6 +27,17 @@ public interface MediaPrefs extends PreferenceStore {
 	int SCALE_ORIGINAL = 2;
 	int SCALE_4_3 = 3;
 	int SCALE_16_9 = 4;
+	int SCALE_SMALL = 5;
+	int SCALE_TINY = 6;
+	int VIDEO_POSITION_TOP_LEFT = 0;
+	int VIDEO_POSITION_TOP = 1;
+	int VIDEO_POSITION_TOP_RIGHT = 2;
+	int VIDEO_POSITION_LEFT = 3;
+	int VIDEO_POSITION_CENTER = 4;
+	int VIDEO_POSITION_RIGHT = 5;
+	int VIDEO_POSITION_BOTTOM_LEFT = 6;
+	int VIDEO_POSITION_BOTTOM = 7;
+	int VIDEO_POSITION_BOTTOM_RIGHT = 8;
 
 	int MEDIA_SCANNER_DEFAULT = 0;
 	int MEDIA_SCANNER_SYSTEM = 1;
@@ -40,6 +51,7 @@ public interface MediaPrefs extends PreferenceStore {
 	Pref<IntSupplier> AUDIO_ENGINE = Pref.i("AUDIO_ENGINE", MEDIA_ENG_MP);
 	Pref<IntSupplier> VIDEO_ENGINE = Pref.i("VIDEO_ENGINE", MEDIA_ENG_MP);
 	Pref<IntSupplier> VIDEO_SCALE = Pref.i("VIDEO_SCALE", SCALE_BEST);
+	Pref<IntSupplier> VIDEO_POSITION = Pref.i("VIDEO_POSITION", VIDEO_POSITION_CENTER);
 	Pref<IntSupplier> MEDIA_SCANNER =
 			Pref.i("MEDIA_SCANNER", MEDIA_SCANNER_DEFAULT).withInheritance(false);
 	Pref<DoubleSupplier> SPEED = Pref.f("SPEED", 1.0f).withInheritance(false);
@@ -101,6 +113,10 @@ public interface MediaPrefs extends PreferenceStore {
 
 	default int getVideoScalePref() {
 		return getIntPref(VIDEO_SCALE);
+	}
+
+	default int getVideoPositionPref() {
+		return getIntPref(VIDEO_POSITION);
 	}
 
 	default void setVideoScalePref(int scale) {

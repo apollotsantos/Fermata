@@ -248,6 +248,10 @@ class YoutubeMediaEngine implements MediaEngine, OverlayMenu.SelectionHandler {
 				.setChecked(scale == VideoScale.COVER, true);
 		b.addItem(me.aap.fermata.R.id.video_scaling_orig, null, me.aap.fermata.R.string.video_scaling_orig)
 				.setChecked(scale == VideoScale.NONE, true);
+		b.addItem(me.aap.fermata.R.id.video_scaling_small, null, me.aap.fermata.R.string.video_scaling_small)
+				.setChecked(scale == VideoScale.SMALL, true);
+		b.addItem(me.aap.fermata.R.id.video_scaling_tiny, null, me.aap.fermata.R.string.video_scaling_tiny)
+				.setChecked(scale == VideoScale.TINY, true);
 		b.setSelectionHandler(this);
 	}
 
@@ -265,6 +269,12 @@ class YoutubeMediaEngine implements MediaEngine, OverlayMenu.SelectionHandler {
 			return true;
 		} else if (itemId == me.aap.fermata.R.id.video_scaling_orig) {
 			web.setScale(VideoScale.NONE);
+			return true;
+		} else if (itemId == me.aap.fermata.R.id.video_scaling_small) {
+			web.setScale(VideoScale.SMALL);
+			return true;
+		} else if (itemId == me.aap.fermata.R.id.video_scaling_tiny) {
+			web.setScale(VideoScale.TINY);
 			return true;
 		} else if (item.getData() instanceof Integer) {
 			int d = item.getData();

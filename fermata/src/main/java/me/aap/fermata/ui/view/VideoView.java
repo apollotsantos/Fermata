@@ -17,7 +17,18 @@ import static me.aap.fermata.media.pref.MediaPrefs.SCALE_4_3;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_BEST;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_FILL;
 import static me.aap.fermata.media.pref.MediaPrefs.SCALE_ORIGINAL;
+import static me.aap.fermata.media.pref.MediaPrefs.SCALE_SMALL;
+import static me.aap.fermata.media.pref.MediaPrefs.SCALE_TINY;
 import static me.aap.fermata.media.pref.MediaPrefs.SUB_SIZE;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_BOTTOM_RIGHT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_CENTER;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_RIGHT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP_LEFT;
+import static me.aap.fermata.media.pref.MediaPrefs.VIDEO_POSITION_TOP_RIGHT;
 import static me.aap.utils.async.Completed.completedNull;
 import static me.aap.utils.ui.UiUtils.isVisible;
 import static me.aap.utils.ui.UiUtils.toIntPx;
@@ -84,11 +95,19 @@ import me.aap.utils.ui.view.NavBarView;
 public class VideoView extends FrameLayout
 		implements SurfaceHolder.Callback, View.OnLayoutChangeListener, PreferenceStore.Listener,
 		MainActivityListener, BiConsumer<SubGrid.Position, Subtitles.Text> {
+	private static final long DISCREET_TOGGLE_TAP_TIMEOUT = 300L;
+	private static final int DISCREET_TOGGLE_TAP_SLOP_DP = 24;
 	private final Set<PreferenceStore.Pref<?>> prefChange = new HashSet<>(
 			Arrays.asList(MediaPrefs.VIDEO_SCALE, MediaPrefs.AUDIO_DELAY, MediaPrefs.AUDIO_DELAY_AA,
-					MediaPrefs.SUB_DELAY));
+					MediaPrefs.SUB_DELAY, MediaPrefs.VIDEO_POSITION));
 	private SubDrawer subDrawer;
 	private FutureSupplier<?> createSurface = new Promise<>();
+	private int largeVideoScale = SCALE_BEST;
+	private int discreetVideoScale = SCALE_SMALL;
+	private boolean discreetToggleTap;
+	private long discreetToggleTapTime;
+	private float discreetToggleTapX;
+	private float discreetToggleTapY;
 
 	public VideoView(Context context) {
 		this(context, null);
@@ -296,7 +315,7 @@ public class VideoView extends FrameLayout
 		if (item == null) return;
 
 		SurfaceView surface = getVideoSurface();
-		ViewGroup.LayoutParams lp = surface.getLayoutParams();
+		FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) surface.getLayoutParams();
 
 		float videoWidth = eng.getVideoWidth();
 		float videoHeight = eng.getVideoHeight();
@@ -310,9 +329,12 @@ public class VideoView extends FrameLayout
 		int scale = item.getPrefs().getVideoScalePref();
 
 		switch (scale) {
+			case SCALE_SMALL:
+			case SCALE_TINY:
 			case SCALE_4_3:
 			case SCALE_16_9:
-				videoRatio = (scale == SCALE_16_9) ? 16f / 9f : 4f / 3f;
+				if (scale == SCALE_16_9) videoRatio = 16f / 9f;
+				else if (scale == SCALE_4_3) videoRatio = 4f / 3f;
 			default:
 			case SCALE_BEST:
 				float screenRatio = screenWidth / screenHeight;
@@ -342,11 +364,36 @@ public class VideoView extends FrameLayout
 				break;
 		}
 
-		if ((lp.width != width) || (lp.height != height)) {
+		if ((scale == SCALE_SMALL) || (scale == SCALE_TINY)) {
+			float factor = (scale == SCALE_SMALL) ? 0.5f : 0.33f;
+			width = Math.max(1, (int) (width * factor));
+			height = Math.max(1, (int) (height * factor));
+		}
+		int gravity = ((scale == SCALE_SMALL) || (scale == SCALE_TINY)) ?
+				getVideoGravity(item.getPrefs().getVideoPositionPref()) :
+				(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
+
+		if ((lp.width != width) || (lp.height != height) || (lp.gravity != gravity)) {
 			lp.width = width;
 			lp.height = height;
+			lp.gravity = gravity;
 			surface.setLayoutParams(lp);
 		}
+	}
+
+	private static int getVideoGravity(int position) {
+		return switch (position) {
+			case VIDEO_POSITION_TOP_LEFT -> Gravity.TOP | Gravity.LEFT;
+			case VIDEO_POSITION_TOP -> Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+			case VIDEO_POSITION_TOP_RIGHT -> Gravity.TOP | Gravity.RIGHT;
+			case VIDEO_POSITION_LEFT -> Gravity.CENTER_VERTICAL | Gravity.LEFT;
+			case VIDEO_POSITION_RIGHT -> Gravity.CENTER_VERTICAL | Gravity.RIGHT;
+			case VIDEO_POSITION_BOTTOM_LEFT -> Gravity.BOTTOM | Gravity.LEFT;
+			case VIDEO_POSITION_BOTTOM -> Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+			case VIDEO_POSITION_BOTTOM_RIGHT -> Gravity.BOTTOM | Gravity.RIGHT;
+			case VIDEO_POSITION_CENTER -> Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL;
+			default -> Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL;
+		};
 	}
 
 	@Override
@@ -396,9 +443,70 @@ public class VideoView extends FrameLayout
 
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
-	public boolean onTouchEvent(@NonNull MotionEvent e) {
-		MainActivityDelegate a = getActivity().peek();
-		return (a != null) && a.interceptTouchEvent(e, this::onTouch);
+	public boolean onTouchEvent(@NonNull MotionEvent event) {
+		if (handleDiscreetToggleTap(event)) return true;
+		MainActivityDelegate activity = getActivity().peek();
+		return (activity != null) && activity.interceptTouchEvent(event, this::onTouch);
+	}
+
+	private boolean handleDiscreetToggleTap(@NonNull MotionEvent event) {
+		switch (event.getActionMasked()) {
+			case MotionEvent.ACTION_POINTER_DOWN -> {
+				if (event.getPointerCount() == 2) {
+					discreetToggleTap = true;
+					discreetToggleTapTime = event.getEventTime();
+					discreetToggleTapX = (event.getX(0) + event.getX(1)) / 2f;
+					discreetToggleTapY = (event.getY(0) + event.getY(1)) / 2f;
+				} else {
+					discreetToggleTap = false;
+				}
+			}
+			case MotionEvent.ACTION_MOVE -> {
+				if (!discreetToggleTap || (event.getPointerCount() != 2)) return false;
+				float currentX = (event.getX(0) + event.getX(1)) / 2f;
+				float currentY = (event.getY(0) + event.getY(1)) / 2f;
+				int slop = toIntPx(getContext(), DISCREET_TOGGLE_TAP_SLOP_DP);
+				if ((Math.abs(currentX - discreetToggleTapX) > slop) ||
+						(Math.abs(currentY - discreetToggleTapY) > slop)) discreetToggleTap = false;
+			}
+			case MotionEvent.ACTION_POINTER_UP -> {
+				if (!discreetToggleTap || (event.getPointerCount() != 2)) return false;
+				discreetToggleTap = false;
+				if ((event.getEventTime() - discreetToggleTapTime) > DISCREET_TOGGLE_TAP_TIMEOUT)
+					return false;
+				return toggleDiscreetVideoScale();
+			}
+			case MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> discreetToggleTap = false;
+		}
+
+		return false;
+	}
+
+	protected boolean toggleDiscreetVideoScale() {
+		MainActivityDelegate activity = getActivity().peek();
+		if (activity == null) return false;
+		MediaEngine engine = activity.getMediaSessionCallback().getEngine();
+		if (engine == null) return false;
+
+		PlayableItem item = engine.getSource();
+		if ((item == null) || !item.isVideo()) return false;
+
+		int scale = item.getPrefs().getVideoScalePref();
+		if (isDiscreetVideoScale(scale)) {
+			discreetVideoScale = scale;
+			item.getPrefs().setVideoScalePref(isDiscreetVideoScale(largeVideoScale) ?
+					SCALE_BEST : largeVideoScale);
+		} else {
+			largeVideoScale = scale;
+			item.getPrefs().setVideoScalePref(isDiscreetVideoScale(discreetVideoScale) ?
+					discreetVideoScale : SCALE_SMALL);
+		}
+
+		return true;
+	}
+
+	protected static boolean isDiscreetVideoScale(int scale) {
+		return (scale == SCALE_SMALL) || (scale == SCALE_TINY);
 	}
 
 	@Override
@@ -475,7 +583,7 @@ public class VideoView extends FrameLayout
 			PlayableItem i = eng.getSource();
 			if ((i == null) || !i.isVideo()) return;
 
-			if (prefs.contains(MediaPrefs.VIDEO_SCALE)) {
+			if (prefs.contains(MediaPrefs.VIDEO_SCALE) || prefs.contains(MediaPrefs.VIDEO_POSITION)) {
 				setSurfaceSize(eng);
 			} else if (prefs.contains(MediaPrefs.AUDIO_DELAY) ||
 					prefs.contains(MediaPrefs.AUDIO_DELAY_AA)) {

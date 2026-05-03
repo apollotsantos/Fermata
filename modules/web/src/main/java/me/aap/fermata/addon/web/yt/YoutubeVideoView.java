@@ -10,6 +10,8 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import me.aap.fermata.addon.web.R;
+import me.aap.fermata.ui.activity.MainActivityDelegate;
 import me.aap.fermata.ui.view.VideoInfoView;
 import me.aap.fermata.ui.view.VideoView;
 
@@ -38,5 +40,11 @@ public class YoutubeVideoView extends VideoView {
 	@Override
 	public SurfaceView getSubtitleSurface() {
 		return null;
+	}
+
+	@Override
+	protected boolean toggleDiscreetVideoScale() {
+		YoutubeWebView youtubeWebView = MainActivityDelegate.get(getContext()).findViewById(R.id.ytWebView);
+		return (youtubeWebView != null) && youtubeWebView.toggleDiscreetVideoScale();
 	}
 }
