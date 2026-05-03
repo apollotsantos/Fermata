@@ -28,6 +28,7 @@ public class YoutubeVideoView extends VideoView {
 	protected void init(Context context) {
 		addView(new FrameLayout(context), new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
 		addInfoView(context);
+		addBrightnessOverlay(context);
 	}
 
 	@NonNull

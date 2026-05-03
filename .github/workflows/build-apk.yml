@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Fermata Auto APK
 
 on:
   push:
@@ -12,6 +12,7 @@ concurrency:
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
+  AUTO_APK_TASK: ':fermata:packageAutoReleaseUniversalApk'
 
 jobs:
   build:
@@ -66,15 +67,15 @@ jobs:
           storePassword=${{ secrets.CI_KEYSTORE_PWD }}
           EOF
 
-      - name: Build APKs
+      - name: Build Auto APKs
         env:
           NO_GS: true
         run: |
           out=fermata/build/outputs/apk_from_bundle/autoRelease
           mkdir -p dist/arm64 dist/arm
-          ./gradlew fermata:packageAutoReleaseUniversalApk -PABI=arm64-v8a --build-cache
+          ./gradlew "$AUTO_APK_TASK" -PABI=arm64-v8a --build-cache
           mv $out/*.apk dist/arm64/
-          ./gradlew fermata:packageAutoReleaseUniversalApk -PABI=armeabi-v7a --build-cache
+          ./gradlew "$AUTO_APK_TASK" -PABI=armeabi-v7a --build-cache
           mv $out/*.apk dist/arm/
 
       - name: Upload arm64 APK

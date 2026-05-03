@@ -101,6 +101,7 @@ public class VideoView extends FrameLayout
 			Arrays.asList(MediaPrefs.VIDEO_SCALE, MediaPrefs.AUDIO_DELAY, MediaPrefs.AUDIO_DELAY_AA,
 					MediaPrefs.SUB_DELAY, MediaPrefs.VIDEO_POSITION));
 	private SubDrawer subDrawer;
+	private View brightnessOverlay;
 	private FutureSupplier<?> createSurface = new Promise<>();
 	private int largeVideoScale = SCALE_BEST;
 	private int discreetVideoScale = SCALE_SMALL;
@@ -146,9 +147,20 @@ public class VideoView extends FrameLayout
 		});
 
 		addInfoView(context);
+		addBrightnessOverlay(context);
 		addOnLayoutChangeListener(this);
 		setLayoutParams(new CircularRevealFrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
 		setFocusable(true);
+	}
+
+	protected void addBrightnessOverlay(Context context) {
+		brightnessOverlay = new View(context);
+		brightnessOverlay.setBackgroundColor(Color.BLACK);
+		brightnessOverlay.setAlpha(0f);
+		brightnessOverlay.setClickable(false);
+		brightnessOverlay.setFocusable(false);
+		brightnessOverlay.setVisibility(GONE);
+		addView(brightnessOverlay, new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
 	}
 
 	protected void addInfoView(Context context) {
@@ -218,12 +230,22 @@ public class VideoView extends FrameLayout
 		createSurface.onSuccess(v -> {
 			MainActivityDelegate a = getActivity().peek();
 			if (a == null) return;
+			if (a.getPrefs().getChangeBrightnessPref()) setSoftwareBrightness(a.getBrightness());
 			MediaSessionCallback cb = a.getMediaSessionCallback();
 			MediaEngine eng = cb.getEngine();
 			if (eng != null) setSurfaceSize(eng);
 			VideoInfoView info = getVideoInfoView();
 			if (hideTitle && (info != null)) info.setVisibility(GONE);
 		});
+	}
+
+	public void setSoftwareBrightness(int brightness) {
+		View overlay = brightnessOverlay;
+		if (overlay == null) return;
+		int value = Math.max(0, Math.min(255, brightness));
+		float alpha = (255 - value) / 255f;
+		overlay.setAlpha(alpha);
+		overlay.setVisibility(alpha == 0f ? GONE : VISIBLE);
 	}
 
 	public void prepareSubDrawer(boolean dbl) {
