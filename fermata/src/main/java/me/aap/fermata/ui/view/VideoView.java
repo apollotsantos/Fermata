@@ -95,20 +95,19 @@ import me.aap.utils.ui.view.NavBarView;
 public class VideoView extends FrameLayout
 		implements SurfaceHolder.Callback, View.OnLayoutChangeListener, PreferenceStore.Listener,
 		MainActivityListener, BiConsumer<SubGrid.Position, Subtitles.Text> {
-	private static final long DISCREET_TOGGLE_TAP_TIMEOUT = 300L;
-	private static final int DISCREET_TOGGLE_TAP_SLOP_DP = 24;
+	private static final int BRIGHTNESS_GESTURE_SLOP_DP = 8;
 	private final Set<PreferenceStore.Pref<?>> prefChange = new HashSet<>(
 			Arrays.asList(MediaPrefs.VIDEO_SCALE, MediaPrefs.AUDIO_DELAY, MediaPrefs.AUDIO_DELAY_AA,
 					MediaPrefs.SUB_DELAY, MediaPrefs.VIDEO_POSITION));
 	private SubDrawer subDrawer;
 	private View brightnessOverlay;
 	private FutureSupplier<?> createSurface = new Promise<>();
-	private int largeVideoScale = SCALE_BEST;
-	private int discreetVideoScale = SCALE_SMALL;
-	private boolean discreetToggleTap;
-	private long discreetToggleTapTime;
-	private float discreetToggleTapX;
-	private float discreetToggleTapY;
+	private boolean brightnessGesture;
+	private boolean brightnessDragging;
+	private float brightnessStartX;
+	private float brightnessStartY;
+	private int brightnessStartValue;
+	private int brightnessGestureValue;
 
 	public VideoView(Context context) {
 		this(context, null);
@@ -466,69 +465,92 @@ public class VideoView extends FrameLayout
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(@NonNull MotionEvent event) {
-		if (handleDiscreetToggleTap(event)) return true;
+		if (handleBrightnessGesture(event)) return true;
 		MainActivityDelegate activity = getActivity().peek();
 		return (activity != null) && activity.interceptTouchEvent(event, this::onTouch);
 	}
 
-	private boolean handleDiscreetToggleTap(@NonNull MotionEvent event) {
+	public boolean handleBrightnessGesture(@NonNull MotionEvent event) {
+		MainActivityDelegate activity = getActivity().peek();
+		if (activity == null) return false;
+
 		switch (event.getActionMasked()) {
 			case MotionEvent.ACTION_POINTER_DOWN -> {
 				if (event.getPointerCount() == 2) {
-					discreetToggleTap = true;
-					discreetToggleTapTime = event.getEventTime();
-					discreetToggleTapX = (event.getX(0) + event.getX(1)) / 2f;
-					discreetToggleTapY = (event.getY(0) + event.getY(1)) / 2f;
+					brightnessGesture = true;
+					brightnessDragging = false;
+					brightnessStartX = getPointerCenterX(event);
+					brightnessStartY = getPointerCenterY(event);
+					brightnessStartValue = activity.getBrightness();
+					brightnessGestureValue = brightnessStartValue;
 				} else {
-					discreetToggleTap = false;
+					resetBrightnessGesture();
 				}
 			}
 			case MotionEvent.ACTION_MOVE -> {
-				if (!discreetToggleTap || (event.getPointerCount() != 2)) return false;
-				float currentX = (event.getX(0) + event.getX(1)) / 2f;
-				float currentY = (event.getY(0) + event.getY(1)) / 2f;
-				int slop = toIntPx(getContext(), DISCREET_TOGGLE_TAP_SLOP_DP);
-				if ((Math.abs(currentX - discreetToggleTapX) > slop) ||
-						(Math.abs(currentY - discreetToggleTapY) > slop)) discreetToggleTap = false;
+				if (!brightnessGesture || (event.getPointerCount() < 2)) return false;
+
+				float currentX = getPointerCenterX(event);
+				float currentY = getPointerCenterY(event);
+				float deltaX = currentX - brightnessStartX;
+				float deltaY = currentY - brightnessStartY;
+
+				if (!brightnessDragging) {
+					int slop = toIntPx(getContext(), BRIGHTNESS_GESTURE_SLOP_DP);
+					if (Math.abs(deltaY) < slop) return false;
+					if (Math.abs(deltaX) > Math.abs(deltaY)) {
+						resetBrightnessGesture();
+						return false;
+					}
+
+					brightnessDragging = true;
+					if (!activity.getPrefs().getChangeBrightnessPref()) {
+						activity.getPrefs().applyBooleanPref(
+								MainActivityPrefs.CHANGE_BRIGHTNESS, true);
+					}
+				}
+
+				int travel = Math.max(getHeight() / 2, 1);
+				int value = brightnessStartValue - Math.round(deltaY * 255f / travel);
+				brightnessGestureValue = Math.max(0, Math.min(255, value));
+				activity.setBrightness(brightnessGestureValue);
+				setSoftwareBrightness(activity.getBrightness());
+				return true;
 			}
-			case MotionEvent.ACTION_POINTER_UP -> {
-				if (!discreetToggleTap || (event.getPointerCount() != 2)) return false;
-				discreetToggleTap = false;
-				if ((event.getEventTime() - discreetToggleTapTime) > DISCREET_TOGGLE_TAP_TIMEOUT)
-					return false;
-				return toggleDiscreetVideoScale();
+			case MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+				boolean handled = brightnessDragging;
+				if (handled) {
+					activity.getPrefs().applyIntPref(MainActivityPrefs.BRIGHTNESS, brightnessGestureValue);
+				}
+				resetBrightnessGesture();
+				return handled;
 			}
-			case MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> discreetToggleTap = false;
 		}
 
 		return false;
 	}
 
-	protected boolean toggleDiscreetVideoScale() {
-		MainActivityDelegate activity = getActivity().peek();
-		if (activity == null) return false;
-		MediaEngine engine = activity.getMediaSessionCallback().getEngine();
-		if (engine == null) return false;
-
-		PlayableItem item = engine.getSource();
-		if ((item == null) || !item.isVideo()) return false;
-
-		int scale = item.getPrefs().getVideoScalePref();
-		if (isDiscreetVideoScale(scale)) {
-			discreetVideoScale = scale;
-			item.getPrefs().setVideoScalePref(isDiscreetVideoScale(largeVideoScale) ?
-					SCALE_BEST : largeVideoScale);
-		} else {
-			largeVideoScale = scale;
-			item.getPrefs().setVideoScalePref(isDiscreetVideoScale(discreetVideoScale) ?
-					discreetVideoScale : SCALE_SMALL);
-		}
-
-		return true;
+	private void resetBrightnessGesture() {
+		brightnessGesture = false;
+		brightnessDragging = false;
 	}
 
-	protected static boolean isDiscreetVideoScale(int scale) {
-		return (scale == SCALE_SMALL) || (scale == SCALE_TINY);
+	private static float getPointerCenterX(@NonNull MotionEvent event) {
+		float center = 0f;
+		int pointerCount = Math.min(event.getPointerCount(), 2);
+		for (int pointerIndex = 0; pointerIndex < pointerCount; pointerIndex++) {
+			center += event.getX(pointerIndex);
+		}
+		return center / pointerCount;
+	}
+
+	private static float getPointerCenterY(@NonNull MotionEvent event) {
+		float center = 0f;
+		int pointerCount = Math.min(event.getPointerCount(), 2);
+		for (int pointerIndex = 0; pointerIndex < pointerCount; pointerIndex++) {
+			center += event.getY(pointerIndex);
+		}
+		return center / pointerCount;
 	}
 
 	@Override

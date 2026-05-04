@@ -165,6 +165,7 @@ public class MainActivityDelegate extends ActivityDelegate
 	private FutureSupplier<?> contentLoading;
 	private boolean barsHidden;
 	private boolean videoMode;
+	private VideoView videoModeView;
 	private int videoBrightness = 255;
 	private SpeechListener speechListener;
 	private VoiceCommandHandler voiceCommandHandler;
@@ -592,16 +593,21 @@ public class MainActivityDelegate extends ActivityDelegate
 	}
 
 	public void setVideoMode(boolean videoMode, @Nullable VideoView v) {
-		if (videoMode == this.videoMode) return;
+		if (videoMode == this.videoMode) {
+			if (videoMode && (v != null)) videoModeView = v;
+			return;
+		}
 		ControlPanelView cp = getControlPanel();
 
 		if (videoMode) {
 			this.videoMode = true;
+			videoModeView = v;
 			setSystemUiVisibility();
 			keepScreenOn(true);
 			cp.enableVideoMode(v);
 		} else {
 			this.videoMode = false;
+			videoModeView = null;
 			setSystemUiVisibility();
 			keepScreenOn(false);
 			if (cp != null) cp.disableVideoMode();
@@ -654,7 +660,8 @@ public class MainActivityDelegate extends ActivityDelegate
 
 	public void setBrightness(int brightness) {
 		videoBrightness = Math.max(0, Math.min(255, brightness));
-		VideoView videoView = getMediaSessionCallback().getVideoView();
+		VideoView videoView = videoModeView;
+		if (videoView == null) videoView = getMediaSessionCallback().getVideoView();
 		if ((videoView == null) && (body != null)) videoView = body.getVideoView();
 		if (videoView != null) videoView.setSoftwareBrightness(videoBrightness);
 	}

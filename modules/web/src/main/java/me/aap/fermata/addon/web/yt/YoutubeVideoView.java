@@ -5,6 +5,7 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
@@ -44,8 +45,13 @@ public class YoutubeVideoView extends VideoView {
 	}
 
 	@Override
-	protected boolean toggleDiscreetVideoScale() {
-		YoutubeWebView youtubeWebView = MainActivityDelegate.get(getContext()).findViewById(R.id.ytWebView);
-		return (youtubeWebView != null) && youtubeWebView.toggleDiscreetVideoScale();
+	public void setSoftwareBrightness(int brightness) {
+		super.setSoftwareBrightness(brightness);
+		View overlay = MainActivityDelegate.get(getContext()).findViewById(R.id.ytBrightnessOverlay);
+		if (overlay == null) return;
+		int value = Math.max(0, Math.min(255, brightness));
+		float alpha = (255 - value) / 255f;
+		overlay.setAlpha(alpha);
+		overlay.setVisibility(alpha == 0f ? View.GONE : View.VISIBLE);
 	}
 }

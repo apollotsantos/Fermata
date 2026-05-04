@@ -52,8 +52,6 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 			Pref.b("YT_AUTO_HIGHEST_QUALITY", false);
 	private static final Pref<BooleanSupplier> YT_SKIP_ADD = AUTO ? Pref.b("YT_SKIP_ADD", true) : null;
 	private boolean ignorePrefChange;
-	private VideoScale largeVideoScale = VideoScale.CONTAIN;
-	private VideoScale discreetVideoScale = VideoScale.SMALL;
 
 	@IdRes
 	@Override
@@ -179,22 +177,6 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 		getPreferenceStore().applyStringPref(VIDEO_SCALE, scale.prefName());
 	}
 
-	VideoScale toggleDiscreetScale() {
-		VideoScale scale = getScale();
-		VideoScale target;
-
-		if (scale.isDiscreet()) {
-			discreetVideoScale = scale;
-			target = largeVideoScale.isDiscreet() ? VideoScale.CONTAIN : largeVideoScale;
-		} else {
-			largeVideoScale = scale;
-			target = discreetVideoScale.isDiscreet() ? discreetVideoScale : VideoScale.SMALL;
-		}
-
-		setScale(target);
-		return target;
-	}
-
 	boolean autoHighestQuality() {
 		return getPreferenceStore().getBooleanPref(YT_AUTO_HIGHEST_QUALITY);
 	}
@@ -250,8 +232,5 @@ public class YoutubeAddon extends WebBrowserAddon implements PreferenceStore.Lis
 					";transform:" + transform + ";transform-origin:" + origin;
 		}
 
-		boolean isDiscreet() {
-			return factor != 1f;
-		}
 	}
 }
