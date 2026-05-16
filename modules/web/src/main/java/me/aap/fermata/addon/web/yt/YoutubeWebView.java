@@ -115,13 +115,15 @@ public class YoutubeWebView extends FermataWebView {
 		loadUrl("javascript:\n" +
 				"(function() {\n" +
 				"  var state = window.__fermataVideoListeners;\n" +
-				"  if (!state) state = window.__fermataVideoListeners = {observer:null, scanTimer:null};\n" +
+				"  if (!state) state = window.__fermataVideoListeners = " +
+				"{observer:null, scanTimer:null, attached:new WeakSet()};\n" +
+				"  else if (!state.attached) state.attached = new WeakSet();\n" +
 				"  state.scale = '" + scale + "';\n" +
 				"  function attachVideoListeners(v) {\n" +
 				"    if (!v || (v.tagName !== 'VIDEO')) return;\n" +
-				"    if (v.style.objectFit !== state.scale) v.style.objectFit = state.scale;\n" +
-				"    if (v.__fermataAttached) return;\n" +
-				"    v.__fermataAttached = true;\n" + debug +
+				"    if (v.style.objectFit != state.scale) v.style.objectFit = state.scale;\n" +
+				"    if (state.attached.has(v)) return;\n" +
+				"    state.attached.add(v);\n" + debug +
 				"    if ((v.currentTime > 0) && !v.paused && !v.ended) " + JS_EVENT + "(" + JS_VIDEO_PLAYING +
 				", v.currentSrc);\n" +
 				"    v.addEventListener('playing', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PLAYING +
