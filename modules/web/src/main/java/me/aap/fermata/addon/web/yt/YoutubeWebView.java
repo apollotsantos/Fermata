@@ -113,25 +113,34 @@ public class YoutubeWebView extends FermataWebView {
 		String debug = BuildConfig.D ? JS_EVENT + "(" + JS_VIDEO_FOUND + ", null);\n" : "";
 		String scale = getAddon().getScale().prefName();
 		loadUrl("javascript:\n" +
-				"function attachVideoListeners(v) {\n" +
-				"  if (v.getAttribute('FermataAttached') === 'true') return;\n" +
-				"  v.setAttribute('FermataAttached', 'true');\n" +
-				"  v.setAttribute('style', 'object-fit:" + scale + "');\n" + debug +
-				"  if ((v.currentTime > 0) && !v.paused && !v.ended) " + JS_EVENT + "(" + JS_VIDEO_PLAYING +
+				"(function() {\n" +
+				"  var state = window.__fermataVideoListeners;\n" +
+				"  if (!state) state = window.__fermataVideoListeners = {observer:null, scanTimer:null};\n" +
+				"  state.scale = '" + scale + "';\n" +
+				"  function attachVideoListeners(v) {\n" +
+				"    if (!v || (v.tagName !== 'VIDEO')) return;\n" +
+				"    v.style.objectFit = state.scale;\n" +
+				"    if (v.__fermataAttached) return;\n" +
+				"    v.__fermataAttached = true;\n" + debug +
+				"    if ((v.currentTime > 0) && !v.paused && !v.ended) " + JS_EVENT + "(" + JS_VIDEO_PLAYING +
 				", v.currentSrc);\n" +
-				"  v.addEventListener('playing', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PLAYING +
+				"    v.addEventListener('playing', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PLAYING +
 				", v.currentSrc);});\n" +
-				"  v.addEventListener('pause', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PAUSED +
+				"    v.addEventListener('pause', function(e) {" + JS_EVENT + "(" + JS_VIDEO_PAUSED +
 				", v.currentSrc);});\n" +
-				"  v.addEventListener('ended', function(e) {" + JS_EVENT + "(" + JS_VIDEO_ENDED +
+				"    v.addEventListener('ended', function(e) {" + JS_EVENT + "(" + JS_VIDEO_ENDED +
 				", null);});\n" +
-				"}\n" +
-				"function findVideo() {\n" +
-				"  var video = document.querySelectorAll('video');" +
-				"  video.forEach(attachVideoListeners);\n" +
-				"   setTimeout(findVideo, 1000);\n" +
-				"}\n" +
-				"findVideo();");
+				"  }\n" +
+				"  function scanVideos() { document.querySelectorAll('video').forEach(attachVideoListeners); }\n" +
+				"  function scheduleScan() {\n" +
+				"    if (state.scanTimer) return;\n" +
+				"    state.scanTimer = setTimeout(function() { state.scanTimer = null; scanVideos(); }, 250);\n" +
+				"  }\n" +
+				"  if (state.observer) state.observer.disconnect();\n" +
+				"  state.observer = new MutationObserver(scheduleScan);\n" +
+				"  state.observer.observe(document.documentElement, {childList:true, subtree:true});\n" +
+				"  scanVideos();\n" +
+				"})();");
 	}
 
 	private void injectSponsorBlock() {
