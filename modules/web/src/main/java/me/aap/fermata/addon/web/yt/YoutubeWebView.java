@@ -119,7 +119,7 @@ public class YoutubeWebView extends FermataWebView {
 				"  state.scale = '" + scale + "';\n" +
 				"  function attachVideoListeners(v) {\n" +
 				"    if (!v || (v.tagName !== 'VIDEO')) return;\n" +
-				"    v.style.objectFit = state.scale;\n" +
+				"    if (v.style.objectFit !== state.scale) v.style.objectFit = state.scale;\n" +
 				"    if (v.__fermataAttached) return;\n" +
 				"    v.__fermataAttached = true;\n" + debug +
 				"    if ((v.currentTime > 0) && !v.paused && !v.ended) " + JS_EVENT + "(" + JS_VIDEO_PLAYING +
@@ -132,12 +132,23 @@ public class YoutubeWebView extends FermataWebView {
 				", null);});\n" +
 				"  }\n" +
 				"  function scanVideos() { document.querySelectorAll('video').forEach(attachVideoListeners); }\n" +
+				"  function hasVideo(nodes) {\n" +
+				"    for (var i = 0; i < nodes.length; i++) {\n" +
+				"      var n = nodes[i];\n" +
+				"      if ((n.tagName === 'VIDEO') || (n.querySelector && n.querySelector('video'))) return true;\n" +
+				"    }\n" +
+				"    return false;\n" +
+				"  }\n" +
 				"  function scheduleScan() {\n" +
 				"    if (state.scanTimer) return;\n" +
 				"    state.scanTimer = setTimeout(function() { state.scanTimer = null; scanVideos(); }, 250);\n" +
 				"  }\n" +
 				"  if (state.observer) state.observer.disconnect();\n" +
-				"  state.observer = new MutationObserver(scheduleScan);\n" +
+				"  state.observer = new MutationObserver(function(mutations) {\n" +
+				"    for (var i = 0; i < mutations.length; i++) {\n" +
+				"      if (hasVideo(mutations[i].addedNodes)) return scheduleScan();\n" +
+				"    }\n" +
+				"  });\n" +
 				"  state.observer.observe(document.documentElement, {childList:true, subtree:true});\n" +
 				"  scanVideos();\n" +
 				"})();");
